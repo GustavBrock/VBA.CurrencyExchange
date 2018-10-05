@@ -20,7 +20,7 @@ The services, that this project addresses, are:
 
 All services support the currencies commonly used in international trade; for more exotic currencies, you may be limited in the choice of service.
 
-For free, a few services provides exchange rates from any base currency, some provide exchange rates based on one currency only, some only one or a few currencies based on any currency, and one provides exchange rates *to* one currency only (Euro, The European Central Bank).
+For free, a few services provide exchange rates from any base currency, some provide exchange rates based on one currency only, some only one or a few currencies based on any currency, and one provides exchange rates *to* one currency only (Euro, The European Central Bank).
 
 For those services that - for free or by design - offer only one base currency, exchange rates can still be retrieved for other base currencies, though not directly (of course) but, automatically, by triangular calculation against the supported base currency.
 
