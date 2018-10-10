@@ -1,5 +1,5 @@
 Attribute VB_Name = "ZoneUtil"
-Option Compare Database
+Option Compare Text
 Option Explicit
 
 ' ZoneUtil v1.0.0

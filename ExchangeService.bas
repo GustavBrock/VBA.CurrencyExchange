@@ -1,10 +1,11 @@
 Attribute VB_Name = "ExchangeService"
-Option Compare Database
+Option Compare Text
 Option Explicit
 
-' ExchangeRate V1.3.1
+' ExchangeRate V1.4.3
 ' (c) Gustav Brock, Cactus Data ApS, CPH
 ' https://github.com/GustavBrock/VBA.CurrencyExchange
+
 
 ' API id or key. Guid string, 0, 24, or 32 characters.
 '
@@ -19,6 +20,11 @@ Public Const EraApiId   As String = "000000000000000000000000"
 Public Const FxrApiId   As String = "00000000000000000000000000000000"
 ' Open Exchange Rates:              "--------------------------------"
 Public Const OxrApiId   As String = "00000000000000000000000000000000"
+
+' Compiler constants.
+'
+' Select Early Binding (True) or Late Binding (False).
+#Const EarlyBinding = True
 
 ' Enums.
 '
@@ -53,6 +59,8 @@ Public Const EuroCode           As String = "EUR"
 ' Currency code for US Dollar.
 Public Const USDollarCode       As String = "USD"
 ' Currency code for neutral currency.
+Public Const RubelCode          As String = "RUB"
+' Currency code for neutral currency.
 Public Const NeutralCode        As String = "XXX"
 ' Currency name for neutral currency.
 Public Const NeutralName        As String = "No currency"
@@ -64,6 +72,93 @@ Public Const NoCode             As String = ""
 Public Const NoRate             As Double = 0
 ' Publishing/value date when unknown.
 Public Const NoValueDate        As Date = #1/1/1970#
+
+' Returns the current conversion factor from Rubel to another currency based on
+' the official exchange rates published by the Central Bank of the Russian
+' Federation.
+'
+' Optionally, the conversion factor can be calculated from any other of the
+' published exchange rates. Exchange rates from or to other currencies than
+' RUB are calculated from RUB by triangular calculation.
+'
+' If an invalid or unpublished currency code is passed, a conversion factor
+' of zero is returned.
+'
+' Examples, typical:
+'   CurrencyConvertCbr("DKK")          ->  0.0973738278625471
+'   CurrencyConvertCbr("DKK", "EUR")   ->  7.46477501777072
+'   CurrencyConvertCbr("AUD")          ->  0.021253081696846
+'   CurrencyConvertCbr("AUD", "DKK")   ->  0.2182627731021
+'   CurrencyConvertCbr("DKK", "AUD")   ->  4.58163334858857
+'   CurrencyConvertCbr("EUR", "DKK")   ->  0.133962510272498
+'   CurrencyConvertCbr("", "DKK")      -> 10.2697
+'   CurrencyConvertCbr("EUR")          ->  0.013044442415309
+' Examples, neutral code.
+'   CurrencyConvertCbr("AUD", "XXX")   ->  1
+'   CurrencyConvertCbr("XXX", "AUD")   ->  1
+'   CurrencyConvertCbr("XXX")          ->  1
+' Examples, invalid code.
+'   CurrencyConvertCbr("XYZ")          ->  0
+'   CurrencyConvertCbr("DKK", "XYZ")   ->  0
+'
+' 2018-10-07. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function CurrencyConvertCbr( _
+    ByVal IsoTo As String, _
+    Optional ByVal IsoFrom As String = RubelCode) _
+    As Double
+    
+    Dim Rates()     As Variant
+    
+    Dim RateTo      As Double
+    Dim RateFrom    As Double
+    Dim Factor      As Double
+    Dim Index       As Integer
+    
+    If IsoFrom = "" Then
+        IsoFrom = RubelCode
+    End If
+    If IsoTo = "" Then
+        IsoTo = RubelCode
+    End If
+    
+    If IsoTo = NeutralCode Or IsoFrom = NeutralCode Then
+        Factor = NeutralRate
+    ElseIf IsoTo = IsoFrom Then
+        Factor = NeutralRate
+    Else
+        Rates() = ExchangeRatesCbr
+    
+        If IsoTo = RubelCode Then
+            RateTo = NeutralRate
+        Else
+            For Index = LBound(Rates) To UBound(Rates)
+                If Rates(Index, RateDetail.Code) = IsoTo Then
+                    RateTo = Rates(Index, RateDetail.Rate)
+                    Exit For
+                End If
+            Next
+        End If
+        
+        If RateTo > NoRate Then
+            If IsoFrom = RubelCode Then
+                RateFrom = NeutralRate
+            Else
+                For Index = LBound(Rates) To UBound(Rates)
+                    If Rates(Index, RateDetail.Code) = IsoFrom Then
+                        RateFrom = Rates(Index, RateDetail.Rate)
+                        Exit For
+                    End If
+                Next
+            End If
+            Factor = RateFrom / RateTo
+        End If
+        
+    End If
+    
+    CurrencyConvertCbr = Factor
+
+End Function
 
 ' Returns the current conversion factor from one currency to another
 ' based on the exchange rates published by Currency Converter API.
@@ -390,6 +485,8 @@ End Function
 '
 ' Optionally, the conversion factor can be calculated from any other of the
 ' published exchange rates.
+'''''' For the free plan, exchange rates for other base currencies are
+'''''' calculated from EUR by triangular calculation.
 '
 ' If an invalid or unpublished currency code is passed, a conversion factor
 ' of zero is returned.
@@ -640,6 +737,221 @@ Public Function CurrencyConvertOxr( _
 
 End Function
 
+' https://stackoverflow.com/a/23812869/3527297
+
+' Retrieve the current exchange rates from the Central Bank of the Russian
+' Federation having RUB as the base currency.
+' The rates are returned as an array and cached until the next update.
+' The rates are updated once a day at about UTC 13:00.
+'
+' Source:
+'   https://cbr.ru/eng/currency_base/daily/
+'
+' Note:
+'   The Central Bank of the Russian Federation has set the exchange rates of
+'   foreign currencies against the ruble without assuming any liability to
+'   buy or sell foreign currency at the rates.
+'
+' Example:
+'   Dim Rates As Variant
+'   Rates = ExchangeRatesCbr()
+'   Rates(9, 0) -> 2018-10-06       ' Publishing date.
+'   Rates(9, 1) -> "DKK"            ' Currency code.
+'   Rates(9, 2) -> 10.2697          ' Exchange rate.
+'   Rates(9, 3) -> "Danish Krone"   ' Currency name in English.
+'
+' 2018-10-07. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function ExchangeRatesCbr( _
+    Optional ByVal LanguageCode As String) _
+    As Variant
+
+    ' Operational constants.
+    '
+    ' API endpoints.
+    Const RuServiceUrl  As String = "https://cbr.ru/currency_base/daily/"
+    Const EnServiceUrl  As String = "https://cbr.ru/eng/currency_base/daily/"
+    
+    ' Functional constants.
+    '
+    ' Page encoding.
+    Const Characterset  As String = "UTF-8"
+    ' Async setting.
+    Const Async         As Variant = False
+    ' Class name of data table.
+    Const DataClassName As String = "data"
+    ' Field items of html table.
+    Const CodeField     As Integer = 1
+    Const NameField     As Integer = 3
+    Const UnitField     As Integer = 2
+    Const RateField     As Integer = 4
+    ' Locater/header for publishing date: "DT":".
+    Const DateHeader    As String = """DT"":"""
+    ' Length of formatted date: 2000-01-01.
+    Const DateLength    As Integer = 10
+    
+    ' Update hour (UTC).
+    Const UpdateHour    As Date = #1:00:00 PM#
+    ' Update interval: 24 hours.
+    Const UpdatePause   As Integer = 24
+    ' English language code.
+    Const EnglishCode   As String = "en"
+    ' Russion language code.
+    Const RussianCode   As String = "ru"
+    
+
+#If EarlyBinding Then
+    ' Microsoft XML, v6.0.
+    Dim XmlHttp         As MSXML2.ServerXMLHTTP60
+    ' Microsoft ActiveX Data Objects 6.1 Library.
+    Dim Stream          As ADODB.Stream
+    ' Microsoft HTML Object Library.
+    Dim Document        As MSHTML.HTMLDocument
+    Dim Scripts         As MSHTML.IHTMLElementCollection
+    Dim Script          As MSHTML.HTMLHtmlElement
+    Dim Tables          As MSHTML.IHTMLElementCollection
+    Dim Table           As MSHTML.HTMLHtmlElement
+    Dim Rows            As MSHTML.IHTMLElementCollection
+    Dim Row             As MSHTML.HTMLHtmlElement
+    Dim Fields          As MSHTML.IHTMLElementCollection
+
+    Set XmlHttp = New MSXML2.ServerXMLHTTP60
+    Set Stream = New ADODB.Stream
+    Set Document = New MSHTML.HTMLDocument
+#Else
+    Dim XmlHttp         As Object
+    Dim Stream          As Object
+    Dim Document        As Object
+    Dim Scripts         As Object
+    Dim Script          As Object
+    Dim Tables          As Object
+    Dim Table           As Object
+    Dim Rows            As Object
+    Dim Row             As Object
+    Dim Fields          As Object
+    
+    Set XmlHttp = CreateObject("MSXML2.ServerXMLHTTP")
+    Set Stream = CreateObject("ADODB.Stream")
+    Set Document = CreateObject("htmlfile")
+#End If
+
+    Static Rates()      As Variant
+    Static LastCall     As Date
+    Static LastCode     As String
+    
+    Dim ServiceUrl      As String
+    Dim RateCount       As Integer
+    Dim Published       As String
+    Dim ValueDate       As Date
+    Dim ThisCall        As Date
+    Dim Text            As String
+    Dim Index           As Integer
+    Dim Unit            As Double
+    Dim ScaledRate      As Double
+    Dim TrueRate        As Double
+    
+    If StrComp(LanguageCode, RussianCode, vbTextCompare) = 0 Then
+        LanguageCode = RussianCode
+        ServiceUrl = RuServiceUrl
+    Else
+        LanguageCode = EnglishCode
+        ServiceUrl = EnServiceUrl
+    End If
+    
+    If LastCode = LanguageCode And DateDiff("h", LastCall, UtcNow) < UpdatePause Then
+        ' Return cached rates.
+    Else
+        ' Retrieve updated rates.
+    
+        ' Define default result array.
+        ' Redim for four dimensions: date, code, rate, name.
+        ReDim Rates(0, 0 To 3)
+        Rates(0, RateDetail.Date) = NoValueDate
+        Rates(0, RateDetail.Code) = NeutralCode
+        Rates(0, RateDetail.Rate) = NeutralRate
+        Rates(0, RateDetail.Name) = NeutralName
+        
+        ' Retrieve data.
+        XmlHttp.Open "GET", ServiceUrl, Async
+        XmlHttp.Send
+        If XmlHttp.Status = HttpStatus.OK Then
+            ' Retrieve and convert the page.
+            
+            ' Write the raw bytes to the stream.
+            Stream.Open
+            Stream.Type = adTypeBinary
+            Stream.Write XmlHttp.responseBody
+            ' Read text characters from the stream applying the character set.
+            Stream.Position = 0
+            Stream.Type = adTypeText
+            Stream.Charset = Characterset
+            ' Copy the page to the document object.
+            Document.body.innerHTML = Stream.ReadText
+        
+            ' Search the scripts to locate the publishing date.
+            Set Scripts = Document.getElementsByTagName("script")
+            ValueDate = Date
+            For Each Script In Scripts
+                Text = Script.innerHTML
+                If InStr(Text, "uniDbQuery_Data =") > 0 Then
+                    Published = Left(Split(Text, DateHeader)(1), DateLength)
+                    If IsDate(Published) Then
+                        ValueDate = CDate(Published)
+                    End If
+                    Exit For
+                End If
+            Next
+        
+            ' Search the tables to locate the data table.
+            ' Doesn't work with late binding.
+            ' Set Tables = Document.getElementsByClassName("data")
+            Set Tables = Document.getElementsByTagName("table")
+            For Each Table In Tables
+                If Table.className = DataClassName Then
+                    Exit For
+                End If
+            Next
+            
+            If Not Table Is Nothing Then
+                ' The table was found.
+                Set Rows = Table.getElementsByTagName("tr")
+                ' Reduce the count by one to skip the header row.
+                RateCount = Rows.Length - 1
+                ' Redim for four dimensions: date, code, rate, name.
+                ReDim Rates(0 To RateCount - 1, 0 To 3)
+                
+                ' Fill the array of rates.
+                For Index = LBound(Rates, 1) To UBound(Rates, 1)
+                    ' Offset Index by one to skip the header row.
+                    Set Row = Rows.Item(Index + 1)
+                    ' Get the fields of this rate.
+                    Set Fields = Row.getElementsByTagName("td")
+                    
+                    ' The returned rates are scaled to hold four decimals only.
+                    ' Calculate the true (non-scaled) rate.
+                    ScaledRate = Val(Replace(Fields.Item(RateField).innerText, ",", "."))
+                    Unit = Val(Fields.Item(UnitField).innerText)
+                    TrueRate = ScaledRate / Unit
+                    
+                    Rates(Index, RateDetail.Date) = ValueDate
+                    Rates(Index, RateDetail.Code) = Fields.Item(CodeField).innerText
+                    Rates(Index, RateDetail.Rate) = TrueRate
+                    Rates(Index, RateDetail.Name) = Fields.Item(NameField).innerHTML
+                Next
+            End If
+            
+            ThisCall = ValueDate + UpdateHour
+            ' Record requested language and publishing time of retrieved rates.
+            LastCode = LanguageCode
+            LastCall = ThisCall
+            
+        End If
+    End If
+    
+    ExchangeRatesCbr = Rates
+
+End Function
+
 ' Retrieve the current exchange rate from Currency Converter API for one base currency.
 ' The requested rate is returned as an array and cached until the next update.
 ' All retrieved rates are cached in a collection until the next update.
@@ -856,7 +1168,7 @@ End Function
 '   Rates(12, 1) -> "BDT"               ' Currency code.
 '   Rates(12, 2) -> 84.064038           ' Exchange rate.
 '
-' 2018-09-24. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-07. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function ExchangeRatesCla( _
     Optional ByVal IsoBase As String) _
@@ -881,6 +1193,8 @@ Public Function ExchangeRatesCla( _
     Const FirstNodeName As String = "success"
     Const ErrorNodeName As String = "error"
     Const CodeNodeName  As String = "code"
+    ' Error code for invalid or missing access key.
+    Const KeyErrorCode  As Long = 101
     ' Error code for restricted access to base currency.
     Const BaseErrorCode As Long = 105
     ' Error code for invalid currency code.
@@ -957,6 +1271,9 @@ Public Function ExchangeRatesCla( _
                 If DataCollection(RootNodeName)(CollectionItem.Data)(FirstNodeName)(CollectionItem.Data) = False Then
                     ErrorCode = DataCollection(RootNodeName)(CollectionItem.Data)(ErrorNodeName)(CollectionItem.Data)(CodeNodeName)(CollectionItem.Data)
                     Select Case ErrorCode
+                        Case KeyErrorCode
+                            ' Missing or invalid access key.
+                            Set DataCollection = Nothing
                         Case CodeErrorCode, BaseErrorCode
                             ' Typical for invalid currency code, or if free license and base <> USD, respectively.
                             ' Rebuld Url to use base = USD.
@@ -1075,7 +1392,7 @@ End Function
 '   Rates(7, 2) -> 7.4432       ' Exchange rate.
 '   Rates(7, 3) -> "Euro"       ' Currency name, English or Danish.
 '
-' 2018-09-24. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-09. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function ExchangeRatesDkk( _
     Optional ByVal LanguageCode As String) _
@@ -1111,7 +1428,7 @@ Public Function ExchangeRatesDkk( _
 #If EarlyBinding Then
     ' Microsoft XML, v6.0.
     Dim Document        As MSXML2.DOMDocument60
-    Dim XmlHttp         As MSXML2.XMLHTTP60
+    Dim XmlHttp         As MSXML2.ServerXMLHTTP60
     Dim RootNodeList    As MSXML2.IXMLDOMNodeList
     Dim TimeNodeList    As MSXML2.IXMLDOMNodeList
     Dim RateNodeList    As MSXML2.IXMLDOMNodeList
@@ -1121,7 +1438,7 @@ Public Function ExchangeRatesDkk( _
     Dim RateAttribute   As MSXML2.IXMLDOMAttribute
 
     Set Document = New MSXML2.DOMDocument60
-    Set XmlHttp = New MSXML2.XMLHTTP60
+    Set XmlHttp = New MSXML2.ServerXMLHTTP60
 #Else
     Dim Document        As Object
     Dim XmlHttp         As Object
@@ -1134,7 +1451,7 @@ Public Function ExchangeRatesDkk( _
     Dim RateAttribute   As Object
 
     Set Document = CreateObject("MSXML2.DOMDocument")
-    Set XmlHttp = CreateObject("MSXML2.XMLHTTP")
+    Set XmlHttp = CreateObject("MSXML2.ServerXMLHTTP")
 #End If
 
     Static Rates()      As Variant
@@ -1153,7 +1470,6 @@ Public Function ExchangeRatesDkk( _
     Dim ValueDate       As Date
     Dim ThisCall        As Date
     Dim Item            As Integer
-    
     
     If StrComp(LanguageCode, DanishCode, vbTextCompare) = 0 Then
         LanguageCode = DanishCode
@@ -1197,9 +1513,9 @@ Public Function ExchangeRatesDkk( _
         
         ' Retrieve data.
         XmlHttp.Open "GET", Url, Async
-        XmlHttp.send
+        XmlHttp.Send
         
-        If XmlHttp.status = HttpStatus.OK Then
+        If XmlHttp.Status = HttpStatus.OK Then
             ' File retrieved successfully.
             Document.loadXML XmlHttp.ResponseText
         
@@ -1382,9 +1698,9 @@ Public Function ExchangeRatesEcb() As Variant
         
         ' Retrieve data.
         XmlHttp.Open "GET", Url, Async
-        XmlHttp.send
+        XmlHttp.Send
         
-        If XmlHttp.status = HttpStatus.OK Then
+        If XmlHttp.Status = HttpStatus.OK Then
             ' File retrieved successfully.
             Document.loadXML XmlHttp.ResponseText
         
@@ -1487,7 +1803,7 @@ End Function
 '   Rates(12, 1) -> "BDT"               ' Currency code.
 '   Rates(12, 2) -> 98.26592            ' Exchange rate.
 '
-' 2018-09-24. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-07. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function ExchangeRatesEra( _
     Optional ByVal IsoBase As String, _
@@ -1581,7 +1897,7 @@ Public Function ExchangeRatesEra( _
         
         Url = Join(UrlPath, "/")
         ' Uncomment for debugging.
-        Debug.Print Url
+        ' Debug.Print Url
         
         ' Define default result array.
         ' Redim for three dimensions: date, code, rate.
@@ -1612,6 +1928,7 @@ Public Function ExchangeRatesEra( _
                             Case UnknownCode
                                 ' Invalid currency code.
                         End Select
+                        Set DataCollection = Nothing
                 End Select
             Else
                 ' Unexpected data.
@@ -1714,6 +2031,8 @@ Public Function ExchangeRatesFxr( _
     Const FirstNodeName As String = "success"
     Const ErrorNodeName As String = "error"
     Const CodeNodeName  As String = "code"
+    ' Error code for invalid or missing access key.
+    Const KeyErrorCode  As Long = 101
     ' Error code for restricted access to base currency.
     Const BaseErrorCode As Long = 105
     ' Error code for invalid currency code.
@@ -1790,6 +2109,9 @@ Public Function ExchangeRatesFxr( _
                 If DataCollection(RootNodeName)(CollectionItem.Data)(FirstNodeName)(CollectionItem.Data) = False Then
                     ErrorCode = DataCollection(RootNodeName)(CollectionItem.Data)(ErrorNodeName)(CollectionItem.Data)(CodeNodeName)(CollectionItem.Data)
                     Select Case ErrorCode
+                        Case KeyErrorCode
+                            ' Missing or invalid access key.
+                            Set DataCollection = Nothing
                         Case CodeErrorCode, BaseErrorCode
                             ' Typical for invalid currency code, or if free license and base <> USD, respectively.
                             ' Rebuld Url to use base = USD.

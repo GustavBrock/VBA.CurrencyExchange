@@ -12,11 +12,12 @@ The services, that this project addresses, are:
 
 1. The European Central Bank
 2. The Danish National Bank
-3. Currency Converter API
-4. Currencylayer API
-5. ExchangeRate API
-6. Fixer
-7. Open Exchange Rates
+3. The Central Bank of the Russian Federation
+4. Currency Converter API
+5. Currencylayer API
+6. ExchangeRate API
+7. Fixer
+8. Open Exchange Rates
 
 All services support the currencies commonly used in international trade; for more exotic currencies, you may be limited in the choice of service.
 
@@ -32,10 +33,11 @@ For those services that - for free or by design - offer only one base currency, 
 
 
 ### Functions ###
-Like the services differ in offerings, so do the various APIs or download options, though only two basic techniques are used:
+Like the services differ in offerings, so do the various APIs or download options, though only three basic techniques are used:
 
-* an API, delivering data as Json
-* An XML document
+* addressing an API, delivering data as Json
+* reading an XML document
+* parsing an HTML document (web scraping, data extracting)
 
 However, no two services - even using the same basic technique - offer the same data format; thus a custom function is required for each service.
 
