@@ -2,7 +2,7 @@ Attribute VB_Name = "DateUtil"
 Option Compare Text
 Option Explicit
 
-' DateUtil v1.0.1
+' DateUtil v1.0.2
 ' (c) Gustav Brock, Cactus Data ApS, CPH
 ' https://github.com/GustavBrock/VBA.Timezone
 '
@@ -218,5 +218,28 @@ Public Function FormatSign( _
 
 End Function
 
-
+' Converts a date/time formatted like "yyyy-mm-ddThh:nn:ssZ"
+' to a date value.
+'
+' 2018-10-12. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function DateIso8601( _
+    ByVal Expression As String) _
+    As Date
+    
+    ' Date-time separator.
+    Const Separator As String = "T"
+    ' Final length excluding milliseconds or timezone.
+    Const Length    As Long = 19
+    
+    Dim Result      As Date
+    
+    Expression = Left(Trim(Replace(Expression, Separator, " ")), Length)
+    If IsDate(Expression) Then
+        Result = CDate(Expression)
+    End If
+    
+    DateIso8601 = Result
+    
+End Function
 

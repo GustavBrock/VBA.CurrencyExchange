@@ -18,12 +18,15 @@ The services, that this project addresses, are:
 6. ExchangeRate API
 7. Fixer
 8. Open Exchange Rates
+9. XE
 
 All services support the currencies commonly used in international trade; for more exotic currencies, you may be limited in the choice of service.
 
-For free, a few services provide exchange rates from any base currency, some provide exchange rates based on one currency only, some only one or a few currencies based on any currency, and one provides exchange rates *to* one currency only (Euro, The European Central Bank).
+For free, a few services provide exchange rates from any base currency, some provide exchange rates based on one currency only, some only one or a few currencies based on any currency, and one provides exchange rates *to* one currency only (Euro, The European Central Bank). One service, XE, offers *no free plan* at all.
 
 For those services that - for free or by design - offer only one base currency, exchange rates can still be retrieved for other base currencies, though not directly (of course) but, automatically, by triangular calculation against the supported base currency.
+
+URLs for the services and (where needed) their documentation can be found in the in-line documentation.
 
 
 #### Important:
@@ -45,7 +48,7 @@ The main functions offered are named:
 
 	ExchangeRatesXyz
 
-where **Xys** is a three-letter abbreviation of the service name.
+where **Xyz** is a three-letter abbreviation of the service name.
 
 These functions each downloads and returns an array with the rates, and also attempts to cache the download for two reasons:
 
