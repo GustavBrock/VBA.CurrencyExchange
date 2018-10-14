@@ -2,7 +2,7 @@ Attribute VB_Name = "ExchangeService"
 Option Compare Text
 Option Explicit
 
-' ExchangeRate V1.5.1
+' ExchangeRate V1.5.2
 ' (c) Gustav Brock, Cactus Data ApS, CPH
 ' https://github.com/GustavBrock/VBA.CurrencyExchange
 
@@ -761,7 +761,7 @@ End Function
 '   CurrencyConvertXec("XYZ")           ->  0
 '   CurrencyConvertXec("DKK", "XYZ")    ->  0
 '
-' 2018-09-20. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-12. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function CurrencyConvertXec( _
     ByVal IsoTo As String, _
@@ -2489,7 +2489,7 @@ End Function
 '   Rates(12, 1) -> "BDT"               ' Currency code.
 '   Rates(12, 2) -> 83.7886823907       ' Exchange rate.
 '
-' 2018-10-12. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-14. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function ExchangeRatesXec( _
     Optional ByVal IsoBase As String) _
@@ -2585,6 +2585,8 @@ Public Function ExchangeRatesXec( _
             Select Case Left(ResponseText, 3)
                 Case HttpStatus.Forbidden
                     ' Invalid credentials.
+                Case HttpStatus.BadRequest
+                    ' Invalid currency code (typical).
             End Select
             ' No rates were received.
             Set DataCollection = Nothing
