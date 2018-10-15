@@ -50,12 +50,12 @@ The main functions offered are named:
 
 where **Xyz** is a three-letter abbreviation of the service name.
 
-These functions each downloads and returns an array with the rates, and also attempts to cache the download for two reasons:
+Each of these functions returns an array with the rates, and also attempts to cache the download for two reasons:
 
 - to speed up reading the rates multiple times
 - to save the usage of and the load on the service
 
-These functions are supplemented with a set of matching functions for converting an amount from one currency to another. These are named in a similar way:
+The functions are supplemented with a set of matching functions for converting an amount from one currency to another. These are named in a similar way:
 
 	CurrencyConvertXyz
 
