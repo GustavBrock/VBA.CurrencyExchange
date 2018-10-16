@@ -2,7 +2,7 @@ Attribute VB_Name = "ExchangeService"
 Option Compare Text
 Option Explicit
 
-' ExchangeRate V1.5.2
+' ExchangeRate V1.5.3
 ' (c) Gustav Brock, Cactus Data ApS, CPH
 ' https://github.com/GustavBrock/VBA.CurrencyExchange
 
@@ -761,7 +761,7 @@ End Function
 '   CurrencyConvertXec("XYZ")           ->  0
 '   CurrencyConvertXec("DKK", "XYZ")    ->  0
 '
-' 2018-10-12. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-16. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function CurrencyConvertXec( _
     ByVal IsoTo As String, _
@@ -789,9 +789,6 @@ Public Function CurrencyConvertXec( _
         Factor = NeutralRate
     Else
         ' Retrieve current rates using IsoFrom as the base currency.
-        ' If using the free plan, USD is always the base currency.
-        ' Thus, when using the free plan with a base currency other
-        ' than USD, triangular calculation of the rate will be used.
         IsoBase = IsoFrom
         Rates() = ExchangeRatesXec(IsoBase)
         
@@ -2471,8 +2468,6 @@ End Function
 ' The rates are updated from once per day down to once per minute.
 '
 ' Default base currency is USD.
-' For the free plan, exchange rates for other base currencies are
-' calculated from USD by triangular calculation.
 '
 ' Source:
 '   https://www.xe.com/
@@ -2489,7 +2484,7 @@ End Function
 '   Rates(12, 1) -> "BDT"               ' Currency code.
 '   Rates(12, 2) -> 83.7886823907       ' Exchange rate.
 '
-' 2018-10-14. Gustav Brock, Cactus Data ApS, CPH.
+' 2018-10-16. Gustav Brock, Cactus Data ApS, CPH.
 '
 Public Function ExchangeRatesXec( _
     Optional ByVal IsoBase As String) _
