@@ -18,7 +18,8 @@ The services, that this project addresses, are:
 6. ExchangeRate API
 7. Fixer
 8. Open Exchange Rates
-9. XE
+9. php.mk (National Bank of Republic of Macedonia)
+10. XE
 
 All services support the currencies commonly used in international trade; for more exotic currencies, you may be limited in the choice of service.
 
@@ -65,7 +66,7 @@ All functions support the *neutral currency code* **XXX** for an exchange rate o
 
 
 ### Code ###
-Where relevant, all functions support both early and late binding. Code has been tested with both 32-bit and 64-bit *Microsoft Access 2016* and *365*.
+Where relevant, all functions support both early and late binding. Code has been tested with both 32-bit and 64-bit *Microsoft Access 2019* and *365*.
 
 It requires the Json modules from the project [VBA.CVRAPI](https://github.com/CactusData/VBA.CVRAPI).
 

@@ -2,7 +2,7 @@ Attribute VB_Name = "ExchangeService"
 Option Compare Text
 Option Explicit
 
-' ExchangeRate V1.5.3
+' ExchangeRate V1.6.0
 ' (c) Gustav Brock, Cactus Data ApS, CPH
 ' https://github.com/GustavBrock/VBA.CurrencyExchange
 
@@ -24,6 +24,8 @@ Public Const OxrApiId   As String = "00000000000000000000000000000000"
 Public Const XeAccount  As String = "aaaaaaaaaaaaa1234567"
 ' XE Account API Key:               "--------------------------"
 Public Const XeApiId    As String = "00000000000000000000000000"
+' php.mk token:                     "--------------------------------"
+Public Const NbrmToken  As String = "00000000000000000000000000000000"
 
 ' Compiler constants.
 '
@@ -53,6 +55,15 @@ Private Enum ParameterDetail
     Name = 0
     Value = 1
 End Enum
+'
+' Exchange rate types.
+Public Enum ExchangeRateType
+    [_First] = 0
+    Buy = 0
+    Middle = 1
+    Sell = 2
+    [_Last] = 2
+End Enum
 
 ' Application constants.
 '
@@ -62,8 +73,10 @@ Public Const DanishKroneCode    As String = "DKK"
 Public Const EuroCode           As String = "EUR"
 ' Currency code for US Dollar.
 Public Const USDollarCode       As String = "USD"
-' Currency code for neutral currency.
+' Currency code for Rusian currency.
 Public Const RubelCode          As String = "RUB"
+' Currency code for Macedonian currency.
+Public Const MKDenarCode        As String = "MKD"
 ' Currency code for neutral currency.
 Public Const NeutralCode        As String = "XXX"
 ' Currency name for neutral currency.
@@ -732,6 +745,98 @@ Public Function CurrencyConvertOxr( _
     End If
     
     CurrencyConvertOxr = Factor
+
+End Function
+
+' Returns the current conversion factor from Macedonian Denar to another currency
+' based on the exchange rates published by "php.mk Exhange Rate API".
+'
+' Optionally, the conversion factor can be calculated from any other of the
+' published exchange rates calculated from MKD by triangular calculation.
+'
+' If an invalid or unpublished currency code is passed, a conversion factor
+' of zero is returned.
+'
+' Examples, typical:
+'   CurrencyConvertPhpMk("DKK")         ->  0.120860526951898
+'   CurrencyConvertPhpMk("DKK", "MKD")  ->  0.120860526951898
+'   CurrencyConvertPhpMk("DKK", "EUR")  ->  7.45649021029732
+'   CurrencyConvertPhpMk("AUD")         ->  0.0269924475131858
+'   CurrencyConvertPhpMk("AUD", "DKK")  ->  0.223335510724099
+'   CurrencyConvertPhpMk("DKK", "AUD")  ->  4.47756828619773
+'   CurrencyConvertPhpMk("EUR", "DKK")  ->  0.134111354242645
+'   CurrencyConvertPhpMk("", "DKK")     ->  8.274
+'   CurrencyConvertPhpMk("MKD")         ->  1
+' Examples, neutral code.
+'   CurrencyConvertPhpMk("AUD", "XXX")  ->  1
+'   CurrencyConvertPhpMk("XXX", "AUD")  ->  1
+'   CurrencyConvertPhpMk("XXX")         ->  1
+' Examples, invalid code.
+'   CurrencyConvertPhpMk("XYZ")         ->  0
+'   CurrencyConvertPhpMk("DKK", "XYZ")  ->  0
+'
+' 2020-05-21. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function CurrencyConvertPhpMk( _
+    ByVal IsoTo As String, _
+    Optional ByVal IsoFrom As String = MKDenarCode, _
+    Optional ByVal RateType As ExchangeRateType = ExchangeRateType.Middle) _
+    As Double
+    
+    Dim Rates()     As Variant
+    
+    Dim RateTo      As Double
+    Dim RateFrom    As Double
+    Dim Factor      As Double
+    Dim Index       As Integer
+    
+    If IsoFrom = "" Then
+        IsoFrom = MKDenarCode
+    End If
+    If IsoTo = "" Then
+        IsoTo = MKDenarCode
+    End If
+    
+    If IsoTo = NeutralCode Or IsoFrom = NeutralCode Then
+        Factor = NeutralRate
+    ElseIf IsoTo = IsoFrom Then
+        Factor = NeutralRate
+    Else
+        ' Retrieve current rates using IsoFrom as the base currency.
+        ' MKD is always the base currency, thus triangular calculation
+        ' of the Factor will be used for other base currencies than MKD.
+        Rates() = ExchangeRatesPhpMk(, , RateType)
+        
+        ' Look up the Factor of IsoFrom.
+        If IsoTo = MKDenarCode Then
+            RateTo = NeutralRate
+        Else
+            For Index = LBound(Rates) To UBound(Rates)
+                If Rates(Index, RateDetail.Code) = IsoTo Then
+                    RateTo = Rates(Index, RateDetail.Rate)
+                    Exit For
+                End If
+            Next
+        End If
+        
+        If RateTo > NoRate Then
+            ' Look up the Factor of IsoFrom.
+            If IsoFrom = MKDenarCode Then
+                RateFrom = NeutralRate
+            Else
+                For Index = LBound(Rates) To UBound(Rates)
+                    If Rates(Index, RateDetail.Code) = IsoFrom Then
+                        RateFrom = Rates(Index, RateDetail.Rate)
+                        Exit For
+                    End If
+                Next
+            End If
+            Factor = RateFrom / RateTo
+        End If
+        
+    End If
+    
+    CurrencyConvertPhpMk = Factor
 
 End Function
 
@@ -1481,6 +1586,7 @@ Public Function ExchangeRatesDkk( _
     '
     ' Base URL for Danmarks Nationalbank exchange rates.
     Const ServiceUrl    As String = "http://www.nationalbanken.dk/_vti_bin/DN/DataService.svc/CurrencyRatesXML"
+    'http://www.nationalbanken.dk/_vti_bin/DN/DataService.svc/CurrencyRatesXML?lang=en
     ' Update hour (UTC).
     Const UpdateHour    As Date = #3:00:00 PM#
     ' Update interval: 24 hours.
@@ -1580,7 +1686,7 @@ Public Function ExchangeRatesDkk( _
         UrlParts(1) = Join(Parameters, "&")
         Url = Join(UrlParts, "?")
         ' Uncomment for debugging.
-        ' Debug.Print Url
+         Debug.Print Url
         
         ' Define default result array.
         ' Redim for four dimensions: date, code, rate, name.
@@ -2167,7 +2273,7 @@ Public Function ExchangeRatesFxr( _
         UrlParts(1) = Join(Parameters, "&")
         Url = Join(UrlParts, "?")
         ' Uncomment for debugging.
-        ' Debug.Print Url
+         Debug.Print Url
         
         ' Define default result array.
         ' Redim for three dimensions: date, code, rate.
@@ -2463,6 +2569,210 @@ Public Function ExchangeRatesOxr( _
 
 End Function
 
+' Retrieve the current or historical exchange rates from the
+' National Bank of the Republic of Macedonia as published by
+' the php.mk Exhange Rate API.
+' The rates are returned as an array and cached until the next update.
+' The rates are updated once a day at UTC+01:00.
+'
+' The base currency is MKD, Macedonian Denar.
+' Exchange rates for other base currencies are calculated
+' from MKD by triangular calculation.
+'
+' Source:
+'   https://php.mk/services/nbrm
+'
+' Note:
+'   Earliest date is 1993-01-01; to include EUR, 1999-01-01.
+'   The returned currencies are those of major importance only:
+'   EUR, USD, GBP, CHF, SEK, NOK, JPY, DKK, CAD, AUD
+'
+' Example:
+'   Dim Rates As Variant
+'   Rates = ExchangeRatesPhpMk()
+'   Rates(7, 0) -> 2020-05-21           ' Publishing date.
+'   Rates(7, 1) -> "DKK"                ' Currency code.
+'   Rates(7, 2) -> 8.274                ' Exchange rate, middle rate
+'
+'   Rates = ExchangeRatesPhpMk("EUR")
+'   Rates(7, 0) -> 2020-05-21           ' Publishing date.
+'   Rates(7, 1) -> "DKK"                ' Currency code.
+'   Rates(7, 2) -> 0.134111354242645    ' Exchange rate, middle rate, triangulated.
+'
+'   Rates = ExchangeRatesPhpMk(, , Buy)
+'   Rates(7, 0) -> 2020-05-21           ' Publishing date.
+'   Rates(7, 1) -> "DKK"                ' Currency code.
+'   Rates(7, 2) -> 8.2326               ' Exchange rate, middle rate
+'
+' 2020-05-21. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function ExchangeRatesPhpMk( _
+    Optional ByVal IsoBase As String, _
+    Optional ByVal Datum As Date, _
+    Optional ByVal RateType As ExchangeRateType = ExchangeRateType.Middle) _
+    As Variant
+    
+    ' Operational constants.
+    '
+    ' API endpoint.
+    Const ServiceUrl    As String = "https://api.php.mk/nbrm/v1.0"
+    
+    ' Update interval: 60, 10, or 1 minutes.
+    Const UpdatePause   As Integer = 60
+    
+    ' Function constants.
+    '
+    ' Default base currency code.
+    Const DefaultBase   As String = MKDenarCode
+    ' Node names in retrieved collection.
+    Const RootNodeName  As String = "root"
+    Const DataNodeName  As String = "data"
+    Const FirstNodeName As String = "error"
+    Const ErrorNodeName As String = "status_code"
+    Const CodeNodeName  As String = "oznaka"
+    Const RateNodeNames As String = "kupoven;sreden;prodazen"
+    ' Error code for invalid or missing token key.
+    Const KeyErrorCode  As Long = 401
+
+    Static Rates()      As Variant
+    Static LastCode     As String
+    Static LastDate     As Date
+    Static LastType     As ExchangeRateType
+    Static LastCall     As Date
+    
+    Dim DataCollection  As Collection
+    
+    Dim Parameter()     As String
+    Dim Parameters()    As String
+    Dim UrlParts(1)     As String
+    
+    Dim RateCount       As Integer
+    Dim RateItem        As Variant
+    Dim RateNodeName    As String
+    Dim BaseRate        As Double
+    Dim Index           As Integer
+    Dim Url             As String
+    Dim ResponseText    As String
+    Dim ValueDate       As Date
+    Dim ThisCall        As Date
+    Dim ErrorCode       As Long
+    
+    If IsoBase = "" Then
+        IsoBase = DefaultBase
+    End If
+    If Datum = #12:00:00 AM# Then
+        Datum = VBA.Date
+    End If
+    
+    ' Find name of the rate value node to retrieve.
+    RateNodeName = Split(RateNodeNames, ";")(ValidateExchangeRateType(RateType))
+    
+    If LastCode = IsoBase And LastDate = Datum And LastType = RateType And DateDiff("n", LastCall, Now) < UpdatePause Then
+        ' Return cached rates.
+    Else
+        ' Retrieve updated rates.
+        
+        ' Define parameter array.
+        ' Redim for two dimensions: name, value.
+        ReDim Parameter(0 To 0, 0 To 1)
+        ' Parameter names.
+        Parameter(0, ParameterDetail.Name) = "token"
+        ' Parameter values.
+        Parameter(0, ParameterDetail.Value) = NbrmToken
+        
+        ' Assemble parameters.
+        ReDim Parameters(LBound(Parameter, 1) To UBound(Parameter, 1))
+        For Index = LBound(Parameters) To UBound(Parameters)
+            Parameters(Index) = Parameter(Index, 0) & "=" & Parameter(Index, 1)
+        Next
+        
+        ' Assemble URL.
+        UrlParts(0) = ServiceUrl & Format(Datum, "\/yyyy-mm-dd")
+        UrlParts(1) = Join(Parameters, "&")
+        Url = Join(UrlParts, "?")
+        ' Uncomment for debugging.
+        ' Debug.Print Url
+        
+        ' Define default result array.
+        ' Redim for three dimensions: date, code, rate.
+        ReDim Rates(0, 0 To 2)
+        Rates(0, RateDetail.Date) = NoValueDate
+        Rates(0, RateDetail.Code) = NeutralCode
+        Rates(0, RateDetail.Rate) = NeutralRate
+        
+        If RetrieveDataResponse(Url, ResponseText) = True Then
+            Set DataCollection = CollectJson(ResponseText)
+        Else
+            ' Give up.
+            Set DataCollection = Nothing
+        End If
+    
+        If Not DataCollection Is Nothing Then
+            If DataCollection(RootNodeName)(CollectionItem.Data)(1)(CollectionItem.Name) = FirstNodeName Then
+                If DataCollection(RootNodeName)(CollectionItem.Data)(FirstNodeName)(CollectionItem.Data) = False Then
+                    ErrorCode = DataCollection(RootNodeName)(CollectionItem.Data)(ErrorNodeName)(CollectionItem.Data) '(CodeNodeName)(CollectionItem.Data)
+                    Select Case ErrorCode
+                        Case KeyErrorCode
+                            ' Missing or invalid token.
+                            Set DataCollection = Nothing
+                    End Select
+                End If
+            End If
+        End If
+        
+        If Not DataCollection Is Nothing Then
+        
+            If Not IsObject(DataCollection(RootNodeName)(CollectionItem.Data)(DataNodeName)(CollectionItem.Data)) Then
+                ' No rates were retrieved most likely because of a date out of range.
+            Else
+                ' Rates were retrieved.
+                ' Get the UTC value date and time for the rates.
+                ValueDate = Datum 'DateUnix(DataCollection(RootNodeName)(CollectionItem.Data)(TimeNodeName)(CollectionItem.Data))
+                ' Get count of rates.
+                RateCount = DataCollection(RootNodeName)(CollectionItem.Data)(DataNodeName)(CollectionItem.Data).Count
+                ' Redim for three dimensions: date, code, rate.
+                ReDim Rates(RateCount - 1, 0 To 2)
+                BaseRate = NeutralRate
+                
+                ' Fill the array from the collection items.
+                For Index = 1 To RateCount
+                    ' A retrieved rate item is an array.
+                    RateItem = DataCollection(RootNodeName)(CollectionItem.Data)(DataNodeName)(CollectionItem.Data)(Index)
+                    Rates(Index - 1, RateDetail.Date) = ValueDate
+                    Rates(Index - 1, RateDetail.Code) = RateItem(CollectionItem.Data)(CodeNodeName)(CollectionItem.Data)
+                    Rates(Index - 1, RateDetail.Rate) = Val(RateItem(CollectionItem.Data)(RateNodeName)(CollectionItem.Data))
+                    If Rates(Index - 1, RateDetail.Code) = IsoBase And Rates(Index - 1, RateDetail.Rate) <> NeutralRate Then
+                        ' Prepare triangular calculation.
+                        BaseRate = Rates(Index - 1, RateDetail.Rate)
+                    End If
+                Next
+                If BaseRate <> NeutralRate Then
+                    For Index = 1 To RateCount
+                        ' Perform triangular calculation of the exchange rates.
+                        If Rates(Index - 1, RateDetail.Code) = IsoBase Then
+                            Rates(Index - 1, RateDetail.Rate) = NeutralRate
+                        Else
+                            Rates(Index - 1, RateDetail.Rate) = Rates(Index - 1, RateDetail.Rate) / BaseRate
+                        End If
+                    Next
+                End If
+            End If
+            Set DataCollection = Nothing
+            
+            ' Round the call time down to the start of the update interval.
+            ThisCall = CDate(Fix(Now * 24 * 60 / UpdatePause) / (24 * 60 / UpdatePause))
+            ' Record requested base currency and hour of retrieval.
+            LastCode = IsoBase
+            LastDate = Datum
+            LastType = RateType
+            LastCall = ThisCall
+        End If
+    End If
+    
+    ExchangeRatesPhpMk = Rates
+
+End Function
+
 ' Retrieve the current exchange rates from "XE" for one base currency.
 ' The rates are returned as an array and cached until the next update.
 ' The rates are updated from once per day down to once per minute.
@@ -2560,7 +2870,7 @@ Public Function ExchangeRatesXec( _
         UrlParts(1) = Join(Parameters, "&")
         Url = Join(UrlParts, "?")
         ' Uncomment for debugging.
-        ' Debug.Print Url
+         Debug.Print Url
         
         ' Credentials.
         UserName = XeAccount
@@ -2655,5 +2965,22 @@ Err_IsCollectionItem:
     End Select
     Resume Exit_IsCollectionItem
     
+End Function
+
+' Validate a passed exchange rate type.
+' Returns ExchangeRateType.Middle for any invalid value.
+'
+' 2020-05-21. Gustav Brock, Cactus Data ApS, CPH.
+'
+Public Function ValidateExchangeRateType( _
+    ByVal RateType As ExchangeRateType) _
+    As ExchangeRateType
+    
+    If RateType < ExchangeRateType.[_First] Or RateType > ExchangeRateType.[_Last] Then
+        RateType = ExchangeRateType.Middle
+    End If
+    
+    ValidateExchangeRateType = RateType
+
 End Function
 
