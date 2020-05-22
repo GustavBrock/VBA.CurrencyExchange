@@ -18,7 +18,7 @@ The services, that this project addresses, are:
 6. ExchangeRate API
 7. Fixer
 8. Open Exchange Rates
-9. php.mk (National Bank of Republic of Macedonia)
+9. php.mk (National Bank of the Republic of North Macedonia)
 10. XE
 
 All services support the currencies commonly used in international trade; for more exotic currencies, you may be limited in the choice of service.
