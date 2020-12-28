@@ -78,3 +78,11 @@ Full documentation can be found here:
 [Exchange Rates and Currency Conversion in VBA](https://www.experts-exchange.com/articles/33199/Exchange-Rates-and-Currency-Conversion-in-VBA.html)
 
 Included is a Microsoft Access example application.
+
+<hr>
+
+*If you wish to support my work or need extended support or advice, feel free to:*
+
+<p>
+
+[<img src="https://raw.githubusercontent.com/GustavBrock/VBA.CurrencyExchange/master/images/BuyMeACoffee.png">](https://www.buymeacoffee.com/gustav/)
