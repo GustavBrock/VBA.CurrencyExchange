@@ -66,7 +66,7 @@ All functions support the *neutral currency code* **XXX** for an exchange rate o
 
 
 ### Code ###
-Where relevant, all functions support both early and late binding. Code has been tested with both 32-bit and 64-bit *Microsoft Access 2019* and *365*.
+Where relevant, all functions support both early and late binding. Code has been tested with both 32-bit and 64-bit *Microsoft Access and Excel 2019* and *365*.
 
 It requires the Json modules from the project [VBA.CVRAPI](https://github.com/CactusData/VBA.CVRAPI).
 
@@ -77,7 +77,7 @@ Full documentation can be found here:
 
 [Exchange Rates and Currency Conversion in VBA](https://www.experts-exchange.com/articles/33199/Exchange-Rates-and-Currency-Conversion-in-VBA.html)
 
-Included is a Microsoft Access example application.
+Included is a Microsoft Access example application and a Microsoft Excel example workbook.
 
 <hr>
 
